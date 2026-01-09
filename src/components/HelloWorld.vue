@@ -13,15 +13,37 @@ const sheetTitle = ref('每日打卡')
 
 // 设置选项
 const selectedChars = ref('一日目月')
-const fontFamily = ref('硬笔楷书')
-const fontFamilies = ['楷体', '宋体', '隶书', '魏碑', '硬笔楷书']
+const fontFamilies = [
+  { label: '楷体 (中文 / KaiTi)', value: '"KaiTi", "STKaiti", serif' },
+  { label: '宋体 (中文 / SimSun)', value: '"SimSun", "STSong", serif' },
+  { label: '隶书 (中文 / LiSu)', value: '"LiSu", "STLiti", serif' },
+  { label: '魏碑 (中文 / WeiBei)', value: '"Weibei SC", "STWeibei", serif' },
+  { label: '硬笔楷书 (中文 / Hard-Pen KaiShu)', value: '"Hard-Pen-Kaishu", "KaiTi", "STKaiti", serif' },
+  { label: '微软雅黑 (中文 / Microsoft YaHei)', value: '"Microsoft YaHei", "PingFang SC", sans-serif' },
+  { label: '苹果系统字体 (中文 / Apple System)', value: '-apple-system, "PingFang SC", "Helvetica Neue", sans-serif' },
+  { label: 'Times New Roman (英文 / Times New Roman)', value: '"Times New Roman", Times, serif' },
+  { label: 'Georgia (英文 / Georgia)', value: 'Georgia, "Times New Roman", serif' },
+  { label: 'Garamond (英文 / Garamond)', value: 'Garamond, "Times New Roman", serif' },
+  { label: 'Arial (英文 / Arial)', value: 'Arial, "Helvetica Neue", sans-serif' },
+  { label: 'Courier New (英文 / Courier New)', value: '"Courier New", Courier, monospace' },
+]
+const fontFamily = ref(fontFamilies[4].value)
 const charOpacity = ref(0.3) // 字体透明度
 const repeatCount = ref(4) // 每个字重复次数
 const totalCount = ref(7) // 每行总格子数
 const instruction = ref('短横：起笔时要轻，由轻而重，收笔时减轻收回，略向上斜，形不宜长。') // 自定义说明文字
+const rowsPerPage = ref(7) // 每页显示多少行，保证分页时不裁切
 
 // 将字符串转换为字符数组
 const charArray = computed(() => selectedChars.value.split(''))
+const pagedCharRows = computed(() => {
+  const rows = charArray.value
+  const pages = []
+  for (let i = 0; i < rows.length; i += rowsPerPage.value) {
+    pages.push(rows.slice(i, i + rowsPerPage.value))
+  }
+  return pages
+})
 
 // PDF导出配置
 const pdfOptions = {
@@ -75,7 +97,9 @@ const printSheet = () => {
         <div class="setting-item">
           <label>字体选择：</label>
           <select v-model="fontFamily">
-            <option v-for="font in fontFamilies" :key="font" :value="font">{{ font }}</option>
+            <option v-for="font in fontFamilies" :key="font.value" :value="font.value">
+              {{ font.label }}
+            </option>
           </select>
         </div>
         <div class="setting-item">
@@ -95,6 +119,16 @@ const printSheet = () => {
             type="number" 
             min="1" 
             max="6"
+            style="width: 60px"
+          />
+        </div>
+        <div class="setting-item">
+          <label>每页行数：</label>
+          <input 
+            v-model="rowsPerPage" 
+            type="number" 
+            min="1" 
+            max="12"
             style="width: 60px"
           />
         </div>
@@ -120,37 +154,39 @@ const printSheet = () => {
     <!-- 预览区域 -->
     <div class="preview-section">
       <div class="practice-sheet">
-        <div class="sheet-header">{{ sheetTitle }}</div>
-        <div class="sheet-info">
-          <div class="info-row">
-            <span>姓名：<span class="line-only">_________</span></span>
-            <span class="day-count">第<span class="line-only">___</span>天</span>
+        <div v-for="(pageChars, pageIndex) in pagedCharRows" :key="pageIndex" class="sheet-page">
+          <div class="sheet-header">{{ sheetTitle }}</div>
+          <div class="sheet-info">
+            <div class="info-row">
+            <span>姓名：<span class="line-only"></span></span>
+            <span class="day-count">第<span class="line-only"></span>天</span>
             <span class="date">
-              <span class="line-only">_____</span>年
-              <span class="line-only">___</span>月
-              <span class="line-only">___</span>日
+              <span class="line-only"></span>年
+              <span class="line-only"></span>月
+              <span class="line-only"></span>日
             </span>
+            </div>
           </div>
-        </div>
-        <div class="instruction">{{ instruction }}</div>
-        <div class="grid-container">
-          <div v-for="char in charArray" :key="char" class="char-row">
-            <div v-for="n in totalCount" :key="n" class="practice-grid">
-              <div class="grid-lines">
-                <div class="horizontal"></div>
-                <div class="vertical"></div>
-                <div class="diagonal1"></div>
-                <div class="diagonal2"></div>
+          <div class="instruction">{{ instruction }}</div>
+          <div class="grid-container">
+            <div v-for="char in pageChars" :key="char" class="char-row">
+              <div v-for="n in totalCount" :key="n" class="practice-grid">
+                <div class="grid-lines">
+                  <div class="horizontal"></div>
+                  <div class="vertical"></div>
+                  <div class="diagonal1"></div>
+                  <div class="diagonal2"></div>
+                </div>
+                <div 
+                  v-if="n <= repeatCount" 
+                  class="practice-char" 
+                  :class="{ 'example': n === 1 }" 
+                  :style="{ 
+                    fontFamily,
+                    opacity: n === 1 ? 1 : charOpacity
+                  }"
+                >{{ char }}</div>
               </div>
-              <div 
-                v-if="n <= repeatCount" 
-                class="practice-char" 
-                :class="{ 'example': n === 1 }" 
-                :style="{ 
-                  fontFamily,
-                  opacity: n === 1 ? 1 : charOpacity
-                }"
-              >{{ char }}</div>
             </div>
           </div>
         </div>
@@ -189,6 +225,16 @@ const printSheet = () => {
   border: 2px solid #4CAF50;
   padding: 20px;
   background: white;
+}
+
+.sheet-page {
+  page-break-after: always;
+  break-after: page;
+}
+
+.sheet-page:last-child {
+  page-break-after: auto;
+  break-after: auto;
 }
 
 .sheet-header {
@@ -254,6 +300,8 @@ const printSheet = () => {
   display: flex;
   gap: 10px;
   justify-content: space-between;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 .practice-grid {
